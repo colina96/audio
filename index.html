@@ -1,0 +1,160 @@
+<body>
+<script src="howler.js"></script>
+<script type="text/javascript" src="js/jquery.js"></script>
+<style>
+.btnbox { display:flex; }
+.btn { margin:10px; border:1px solid black; padding: 20px; }
+</style>
+<script>
+var sound = null;
+var state = null;
+function init(src) {
+	console.log('init sound');
+    sound = new Howl({
+      // src: ['audio/01.mp3'],
+      onload: function() {console.log('loaded ',sound.duration());},
+      onend: function() { console.log('file finished'); }
+    });
+    state = 'paused';
+}
+
+var playlist = null;
+function set_playlist(path,file)
+{
+	var s = path.split('/');
+	console.log('path split ',s);
+	var d = all_audio;
+	for (var i = 1; i < s.length; i++) {
+		console.log(s[i]);
+		if (d.dirs && d.dirs[s[i]]) {
+			console.log('set_playlist found',s[i]);
+			d = d.dirs[s[i]];
+		}
+		else { console.log('set_playlist fail ',s[i]); return}
+		
+	}
+	console.log('set_playlist success',d.files);
+	playlist = d.files;
+}
+function load_and_play(file,path)
+{
+	var src = Array();
+	src.push (path + '/' + file);
+	document.getElementById('now_playing_div').innerHTML = path + '/' + file;
+	set_playlist(path,file)
+	console.log('loading',src);
+	sound = new Howl({
+	      src: src,
+	      onload: function() {console.log('loaded ',sound.duration()); play();},
+	      onend: function() { console.log('file finished'); }
+	    });
+	    state = 'paused';
+}
+
+function play()
+{
+	console.log('play ',state);
+	if (sound == null) {
+		console.log('play - no file loaded');
+		return;
+	};
+	if (state == 'paused') {
+		sound.play();
+		document.getElementById('play_btn').innerHTML = 'Pause';
+		state = 'playing';
+	}
+	else if (state == 'playing') {
+		sound.pause();
+		document.getElementById('play_btn').innerHTML = 'Play';
+		state = 'paused';
+		console.log('paused at ' + sound.seek());
+	}
+	console.log('play');
+}
+
+function forward()
+{
+	var duration = sound.duration();
+	var now = sound.seek();
+	console.log('forward ',duration,now,now + 30);
+	if (now+30 < duration) sound.seek(now + 30);
+}
+
+var all_audio = null;
+
+function get_file_list(pathstr)
+{
+	var path = Array();
+	path['path'] = pathstr;
+	var data =  {data: JSON.stringify(path)};
+	$.ajax({
+		url: "list_files.php",
+	    type: "POST",
+	    data: data,
+	    dataType: 'json',
+	    success: function(result) {
+	    	all_audio = result;
+	    	show_files(result,pathstr);
+			console.log(result);
+		},
+		fail: (function (result) {console.log("get_file_list",result);})
+	});
+}
+
+function toggle(div_id)
+{
+	var div = document.getElementById(div_id);
+	if (div.style.display == 'none') div.style.display = 'block';
+	else div.style.display = 'none'
+}
+var ul_node = 0;
+function list_dir(dir,path)
+{
+	var ul = document.createElement('UL');
+	ul.id = 'ul_' + ul_node++;
+	ul.style.display = 'none';
+	console.log('list_dir ',dir);
+	if (dir.dirs) {
+		console.log('found dirs',dir.dirs.length);
+		for (var i in dir.dirs) {
+			console.log('-- ',i,dir.dirs[i]);
+			let li = document.createElement('li');
+			li.innerHTML = i;
+			var child_ul = list_dir(dir.dirs[i],path + "/" + i);
+			li.innerHTML = "<div onclick='toggle(\"" +  child_ul.id + "\")';>" + i + "</div>";
+			li.appendChild(child_ul);
+			ul.appendChild(li);
+		}
+	}
+	if (dir['files']) {
+		for (var i = 0; i < dir['files'].length; i++) {
+			let li = document.createElement('li');
+			li.innerHTML = "<div onclick='load_and_play(\"" + dir['files'][i] + "\",\"" + path + "\");'>" + dir['files'][i] + "</div>";
+			ul.appendChild(li);
+		}
+	}
+	return(ul);
+}
+
+function show_files(list,pathstr)
+{
+	ul_node = 1;
+	var div = document.getElementById('files_div');
+	div.innerHTML = null;
+	var ul = list_dir(list,'audio');
+	ul.style.display = 'block';
+	div.appendChild(ul);
+	
+}
+
+</script>
+<div class='btnbox'>
+<div class='btn' onClick='back()' id='back_btn'>Back</div>
+<div class='btn' onClick='play()' id='play_btn'>Play</div>
+<div class='btn' onClick='forward()' id='forward_btn'>Forward</div>
+<div class='btn' onClick='get_file_list()' id='list_btn'>List</div>
+</div>
+<div id='now_playing_div'></div>
+<div id='files_div'></div>
+
+</body>
