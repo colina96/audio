@@ -7,6 +7,7 @@
 </style>
 <script>
 var sound = null;
+var next_sound = null;
 var state = null;
 function init(src) {
 	console.log('init sound');
@@ -19,8 +20,11 @@ function init(src) {
 }
 
 var playlist = null;
+var playlist_index = -1;
+var playlist_path = null;
 function set_playlist(path,file)
 {
+	playlist_path = path;
 	var s = path.split('/');
 	console.log('path split ',s);
 	var d = all_audio;
@@ -35,6 +39,41 @@ function set_playlist(path,file)
 	}
 	console.log('set_playlist success',d.files);
 	playlist = d.files;
+	playlist_index = -1;
+	for (var i = 0; i < playlist.length; i++) {
+		if (playlist[i] == file) playlist_index = i;
+	}
+	
+}
+
+function load_next()
+{
+	next_sound = null;
+	if (playlist == null || playlist_index < 0) {
+		return(console.log('loadnext ERROR'));
+	}
+	var next = playlist_index + 1;
+	if (next >= playlist.length) return(console.log('at last track'));
+	var src = Array();
+	src.push (playlist_path + '/' + playlist[next]);
+	// document.getElementById('now_playing_div').innerHTML = path + '/' + file;
+	// set_playlist(path,file)
+	console.log('loading next ',src);
+	next_sound = new Howl({
+	      src: src,
+	      onload: function() {console.log('loaded next ',sound.duration()); },
+	      onend: function() { console.log('file finished'); play_next(); }
+	    });
+	   
+}
+function play_next()
+{
+	if (next_sound == null) return(console.log('at last track'));
+	playlist_index ++;
+	document.getElementById('now_playing_div').innerHTML = playlist_path + '/' + playlist[playlist_index];
+	sound = next_sound;
+	sound.play();
+	load_next();
 }
 function load_and_play(file,path)
 {
@@ -45,8 +84,8 @@ function load_and_play(file,path)
 	console.log('loading',src);
 	sound = new Howl({
 	      src: src,
-	      onload: function() {console.log('loaded ',sound.duration()); play();},
-	      onend: function() { console.log('file finished'); }
+	      onload: function() {console.log('loaded ',sound.duration()); play(); load_next()},
+	      onend: function() { console.log('file finished'); play_next()}
 	    });
 	    state = 'paused';
 }
